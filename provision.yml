@@ -1,0 +1,97 @@
+---
+- hosts: all
+  vars_files:
+    vars.yml
+  tasks: 
+  - apt:
+      cache_valid_time: 3600
+  - name: hash password
+    set_fact: 
+      hashed_password: "{{ password | password_hash('sha512', 'mysecretsalt') }}"
+    become: true
+  - name: change default user's password
+    user: 
+      name:  "{{ user }}"
+      password: "{{ hashed_password }}"
+    become: true
+  roles:
+    - role: psacawa.dotpliki
+      # become: false
+      tags: dotpliki
+    # - geerlingguy.nginx
+
+- hosts: all
+  become: true
+  tags: nginx
+  vars_files:
+    vars.yml
+  tasks:
+    - name: install nginx
+      package: 
+        name: nginx
+        state: present
+    - name: empty vhosts enabled
+      file:
+        path: "{{ nginx_vhosts_folder }}/sites-enabled/default"
+        state: absent
+      notify: restart nginx
+    - name: copy vhosts config
+      template:
+        src: templates/vhost.j2
+        dest: "{{ nginx_vhosts_folder }}/sites-available/vhost"
+      notify: restart nginx
+    - name: create symlink to host config
+      file:
+        src: "{{ nginx_vhosts_folder }}/sites-available/vhost"
+        dest: "{{ nginx_vhosts_folder }}/sites-enabled/vhost"
+        state: link
+      notify: restart nginx
+  handlers:
+    - name: restart nginx
+      service: 
+        name: nginx
+        state: restarted
+
+- hosts: all
+  become: true
+  tags: uwsgi
+  vars_files:
+    vars.yml
+  tasks:
+  - name: install python3, pip, uwsgi & plugins
+    package: 
+      name: 
+      - python3
+      - python3-pip
+      - uwsgi
+      - uwsgi-plugin-python3
+      state: present
+  - name: copy uwsgi config
+    template:
+      src: templates/uwsgi.ini.j2
+      dest: "{{ uwsgi_folder }}/apps-available/uwsgi.ini"
+      mode: 0644
+    notify: restart uwsgi
+  - name: create symlink to uwsgi config
+    file:
+      src: "{{ uwsgi_folder }}/apps-available/uwsgi.ini"
+      dest: "{{ uwsgi_folder }}/apps-enabled/uwsgi.ini"
+      state: link
+    notify: restart uwsgi
+
+  - name: make django site
+    file:
+      path: "{{ django_folder }}"
+      state: directory
+    notify: restart uwsgi
+  - name: copy django application
+    copy:
+      src: "{{ django_basename }}"
+      dest: "{{ django_file }}"
+      mode: 0744
+    notify: restart uwsgi
+  handlers:
+    - name: restart uwsgi
+      service: 
+        name: uwsgi
+        state: restarted

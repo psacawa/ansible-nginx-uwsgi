@@ -1,0 +1,21 @@
+# user/pass
+user: ubuntu
+password: pass
+
+# nginx
+nginx_upstream: 
+  - django
+
+nginx_vhosts_folder: /etc/nginx
+
+# uwsgi
+
+uwsgi_folder: /etc/uwsgi
+uwsgi_basename: uwsgi.ini
+uwsgi_unix_socket: /tmp/uwsgi.sock
+
+# django
+django_port: "8000"
+django_basename: projekt.py
+django_folder: /var/www/django/
+django_file: "{{ django_folder }}/{{ django_basename }}"

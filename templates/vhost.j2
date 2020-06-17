@@ -1,0 +1,15 @@
+# vim: set ft=nginx:
+
+upstream django {
+  # server localhost:{{ django_port }};
+  server unix://{{ uwsgi_unix_socket }};
+}
+
+server {
+  listen 80;
+  server_name _;
+  location / {
+    uwsgi_pass django;
+    include uwsgi_params;
+  }
+}
